@@ -7,6 +7,11 @@ spec:
     metadata:
       labels:
         component: "{NAME}"
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8080"
+        prometheus.io/scheme: http
+        prometheus.io/scrape: "true"
     spec:
       containers:
       - name: service
@@ -15,12 +20,26 @@ spec:
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /var/secrets/google/key.json
+        - name: DISCORD_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: discord-token
+        - name: DISCORD_GUILD
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: discord-guild
         - name: DEBUG
           value: "true"
         - name: SENTRYDSN
           value: ""
         - name: IS_PROD
           value: "false"
+        - name: LOCAL
+          value: "true"
+        - name: METRICS
+          value: ":8080"
         ports:
         - name: http
           containerPort: 8080
