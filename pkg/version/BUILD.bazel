@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["version.go"],
+    importpath = "github.com/playnet-public/promcord/pkg/version",
+    visibility = ["//visibility:public"],
+    x_defs = {
+        "github.com/playnet-public/promcord/vendor/github.com/kolide/kit/version.appName": "{STABLE_NAME}",
+        "github.com/playnet-public/promcord/vendor/github.com/kolide/kit/version.version": "{STABLE_VERSION}",
+        "github.com/playnet-public/promcord/vendor/github.com/kolide/kit/version.branch": "{STABLE_BRANCH}",
+        "github.com/playnet-public/promcord/vendor/github.com/kolide/kit/version.revision": "{STABLE_REVISION}",
+        "github.com/playnet-public/promcord/vendor/github.com/kolide/kit/version.buildUser": "{STABLE_USER}",
+        "github.com/playnet-public/promcord/vendor/github.com/kolide/kit/version.goVersion": "{STABLE_GOVERSION}",
+    },
+    deps = [
+        "//vendor/github.com/kolide/kit/version:go_default_library",
+        "//vendor/go.uber.org/zap:go_default_library",
+        "//vendor/go.uber.org/zap/zapcore:go_default_library",
+    ],
+)
