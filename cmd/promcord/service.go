@@ -122,7 +122,7 @@ func main() {
 // handler will get called on every message and is responsible for updating the respective metrics
 func handler(ctx context.Context) func(s *discordgo.Session, m *discordgo.MessageCreate) {
 	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		ctx = log.WithFields(ctx,
+		ctx := log.WithFields(ctx,
 			zap.String("author", m.Author.ID),
 			zap.String("channel", m.ChannelID),
 			zap.String("message", m.ID),
