@@ -140,7 +140,7 @@ func handler(ctx context.Context) func(s *discordgo.Session, m *discordgo.Messag
 			log.From(ctx).Error("adding tags", zap.Error(err))
 		}
 
-		log.From(ctx).Debug("recording metric", zap.String("payload", m.Message.Content))
+		log.From(ctx).Debug("recording metric")
 		stats.Record(ctx, MsgCount.M(int64(1)))
 	}
 }
