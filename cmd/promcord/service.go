@@ -31,15 +31,16 @@ type Spec struct {
 
 	Addr  string `envconfig:"metrics" required:"true" help:"metrics port"`
 	Token string `envconfig:"discord_token" required:"true" help:"discord bot token"`
-	Guild string `envconfig:"discord_guild" required:"true" help:"discord guild id"`
 }
 
 var (
 	// MsgCount .
-	MsgCount = stats.Int64("msg/count", "Count of messages", "1")
+	MsgCount = stats.Int64("promcord/messages/total", "Count of messages", "1")
 )
 
 var (
+	// Guild ID of the recorded metric
+	Guild, _ = tag.NewKey("guild")
 	// Channel ID of the recorded metric
 	Channel, _ = tag.NewKey("channel")
 	// User ID of the recorded metric
@@ -52,7 +53,7 @@ var (
 		Name:        "msg/count",
 		Measure:     MsgCount,
 		Description: "The number of messages sent",
-		TagKeys:     []tag.Key{Channel, User},
+		TagKeys:     []tag.Key{Guild, Channel, User},
 		Aggregation: view.Count(),
 	}
 )
@@ -80,8 +81,6 @@ func main() {
 	if err != nil {
 		log.From(ctx).Fatal("creating discord client", zap.Error(err))
 	}
-
-	ctx = log.WithFields(ctx, zap.String("guild", svc.Guild))
 
 	discord.AddHandler(handler(ctx))
 
@@ -132,7 +131,20 @@ func handler(ctx context.Context) func(s *discordgo.Session, m *discordgo.Messag
 			return
 		}
 
-		ctx, err := tag.New(ctx,
+		var guildID string
+		c, err := s.Channel(m.ChannelID)
+		if err != nil {
+			log.From(ctx).Error("fetching channel", zap.Error(err))
+			guildID = "error"
+		}
+
+		guildID = c.GuildID
+		ctx = log.WithFields(ctx,
+			zap.String("guild", guildID),
+		)
+
+		ctx, err = tag.New(ctx,
+			tag.Insert(Guild, guildID),
 			tag.Insert(Channel, m.ChannelID),
 			tag.Insert(User, m.Author.ID),
 		)
