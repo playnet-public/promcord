@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -36,6 +37,10 @@ type Spec struct {
 var (
 	// MsgCount .
 	MsgCount = stats.Int64("promcord/messages/total", "Count of messages", "1")
+	// MsgLength .
+	MsgLength = stats.Int64("promcord/messages/length", "Length of messages", "1")
+	// MsgWordCount .
+	MsgWordCount = stats.Int64("promcord/message/word/count", "Count of words in messages", "1")
 )
 
 var (
@@ -56,6 +61,22 @@ var (
 		TagKeys:     []tag.Key{Guild, Channel, User},
 		Aggregation: view.Count(),
 	}
+	// MsgLengthView .
+	MsgLengthView = &view.View{
+		Name:        "msg/length",
+		Measure:     MsgLength,
+		Description: "The length of messages sent",
+		TagKeys:     []tag.Key{Guild, Channel, User},
+		Aggregation: view.LastValue(),
+	}
+	// MsgWordCountView .
+	MsgWordCountView = &view.View{
+		Name:        "msg/word/count",
+		Measure:     MsgWordCount,
+		Description: "The number of words sent in messages",
+		TagKeys:     []tag.Key{Guild, Channel, User},
+		Aggregation: view.LastValue(),
+	}
 )
 
 func main() {
@@ -72,6 +93,12 @@ func main() {
 
 	log.From(ctx).Info("registering views")
 	if err := view.Register(MsgCountView); err != nil {
+		log.From(ctx).Fatal("registering views", zap.Error(err))
+	}
+	if err := view.Register(MsgLengthView); err != nil {
+		log.From(ctx).Fatal("registering views", zap.Error(err))
+	}
+	if err := view.Register(MsgWordCountView); err != nil {
 		log.From(ctx).Fatal("registering views", zap.Error(err))
 	}
 	view.SetReportingPeriod(1 * time.Second)
@@ -91,6 +118,7 @@ func main() {
 
 	router := chi.NewRouter()
 	router.Get("/metrics", exporter.ServeHTTP)
+
 	var srv = http.Server{
 		Addr:    svc.Addr,
 		Handler: router,
@@ -154,5 +182,7 @@ func handler(ctx context.Context) func(s *discordgo.Session, m *discordgo.Messag
 
 		log.From(ctx).Debug("recording metric")
 		stats.Record(ctx, MsgCount.M(int64(1)))
+		stats.Record(ctx, MsgLength.M(int64(len(m.Content))))
+		stats.Record(ctx, MsgWordCount.M(int64(len(strings.Fields(m.Content)))))
 	}
 }
