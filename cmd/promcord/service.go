@@ -41,6 +41,8 @@ var (
 	MsgLength = stats.Int64("promcord/messages/length", "Length of messages", "1")
 	// MsgWordCount .
 	MsgWordCount = stats.Int64("promcord/message/word/count", "Count of words in messages", "1")
+	// MemberCount .
+	MemberCount = stats.Int64("promcord/member/count", "Count of members", "1")
 )
 
 var (
@@ -77,6 +79,14 @@ var (
 		TagKeys:     []tag.Key{Guild, Channel, User},
 		Aggregation: view.LastValue(),
 	}
+	// MemberCountView .
+	MemberCountView = &view.View{
+		Name:        "member/count",
+		Measure:     MemberCount,
+		Description: "The number of members",
+		TagKeys:     []tag.Key{Guild},
+		Aggregation: view.LastValue(),
+	}
 )
 
 func main() {
@@ -101,6 +111,9 @@ func main() {
 	if err := view.Register(MsgWordCountView); err != nil {
 		log.From(ctx).Fatal("registering views", zap.Error(err))
 	}
+	if err := view.Register(MemberCountView); err != nil {
+		log.From(ctx).Fatal("registering views", zap.Error(err))
+	}
 	view.SetReportingPeriod(1 * time.Second)
 
 	log.From(ctx).Info("creating discord client")
@@ -109,7 +122,9 @@ func main() {
 		log.From(ctx).Fatal("creating discord client", zap.Error(err))
 	}
 
-	discord.AddHandler(handler(ctx))
+	discord.AddHandler(messageCreateHandler(ctx))
+	discord.AddHandler(memberAddHandler(ctx))
+	discord.AddHandler(memberRemoveHandler(ctx))
 
 	if err := discord.Open(); err != nil {
 		log.From(ctx).Fatal("opening discord connection")
@@ -147,7 +162,7 @@ func main() {
 }
 
 // handler will get called on every message and is responsible for updating the respective metrics
-func handler(ctx context.Context) func(s *discordgo.Session, m *discordgo.MessageCreate) {
+func messageCreateHandler(ctx context.Context) func(s *discordgo.Session, m *discordgo.MessageCreate) {
 	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
 		ctx := log.WithFields(ctx,
 			zap.String("author", m.Author.ID),
@@ -184,5 +199,69 @@ func handler(ctx context.Context) func(s *discordgo.Session, m *discordgo.Messag
 		stats.Record(ctx, MsgCount.M(int64(1)))
 		stats.Record(ctx, MsgLength.M(int64(len(m.Content))))
 		stats.Record(ctx, MsgWordCount.M(int64(len(strings.Fields(m.Content)))))
+	}
+}
+
+// handler will get called when a member enters a guild and is responsible for updating the respective metrics
+func memberAddHandler(ctx context.Context) func(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
+	return func(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
+		ctx := log.WithFields(ctx,
+			zap.String("member", m.Member.User.ID),
+			zap.String("guild", m.GuildID),
+		)
+
+		var memberCount int
+		g, err := s.Guild(m.GuildID)
+		if err != nil {
+			log.From(ctx).Error("fetching guild", zap.Error(err))
+			memberCount = -1
+		}
+
+		memberCount = g.MemberCount
+		ctx = log.WithFields(ctx,
+			zap.Int("member_count", memberCount),
+		)
+
+		ctx, err = tag.New(ctx,
+			tag.Insert(Guild, m.GuildID),
+		)
+		if err != nil {
+			log.From(ctx).Error("adding tags", zap.Error(err))
+		}
+
+		log.From(ctx).Debug("recording metric")
+		stats.Record(ctx, MemberCount.M(int64(memberCount)))
+	}
+}
+
+// handler will get called when a member leaves a guild and is responsible for updating the respective metrics
+func memberRemoveHandler(ctx context.Context) func(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
+	return func(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
+		ctx := log.WithFields(ctx,
+			zap.String("member", m.Member.User.ID),
+			zap.String("guild", m.GuildID),
+		)
+
+		var memberCount int
+		g, err := s.Guild(m.GuildID)
+		if err != nil {
+			log.From(ctx).Error("fetching guild", zap.Error(err))
+			memberCount = -1
+		}
+
+		memberCount = g.MemberCount
+		ctx = log.WithFields(ctx,
+			zap.Int("member_count", memberCount),
+		)
+
+		ctx, err = tag.New(ctx,
+			tag.Insert(Guild, m.GuildID),
+		)
+		if err != nil {
+			log.From(ctx).Error("adding tags", zap.Error(err))
+		}
+
+		log.From(ctx).Debug("recording metric")
+		stats.Record(ctx, MemberCount.M(int64(memberCount)))
 	}
 }
