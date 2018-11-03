@@ -37,6 +37,10 @@
   name = "github.com/seibert-media/golibs"
   branch = "stackdriver"
 
+[[constraint]]
+  name = "github.com/bwmarrin/discordgo"
+  branch = "master"
+
 [prune]
   go-tests = true
   unused-packages = true
