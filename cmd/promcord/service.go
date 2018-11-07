@@ -84,7 +84,7 @@ var (
 		Name:        "member/count",
 		Measure:     MemberCount,
 		Description: "The number of members",
-		TagKeys:     []tag.Key{Guild},
+		TagKeys:     []tag.Key{Guild, User},
 		Aggregation: view.LastValue(),
 	}
 )
@@ -206,7 +206,7 @@ func messageCreateHandler(ctx context.Context) func(s *discordgo.Session, m *dis
 func memberAddHandler(ctx context.Context) func(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	return func(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 		ctx := log.WithFields(ctx,
-			zap.String("member", m.Member.User.ID),
+			zap.String("member", m.User.ID),
 			zap.String("guild", m.GuildID),
 		)
 
@@ -224,6 +224,7 @@ func memberAddHandler(ctx context.Context) func(s *discordgo.Session, m *discord
 
 		ctx, err = tag.New(ctx,
 			tag.Insert(Guild, m.GuildID),
+			tag.Insert(User, m.User.ID),
 		)
 		if err != nil {
 			log.From(ctx).Error("adding tags", zap.Error(err))
@@ -238,7 +239,7 @@ func memberAddHandler(ctx context.Context) func(s *discordgo.Session, m *discord
 func memberRemoveHandler(ctx context.Context) func(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	return func(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 		ctx := log.WithFields(ctx,
-			zap.String("member", m.Member.User.ID),
+			zap.String("member", m.User.ID),
 			zap.String("guild", m.GuildID),
 		)
 
@@ -256,6 +257,7 @@ func memberRemoveHandler(ctx context.Context) func(s *discordgo.Session, m *disc
 
 		ctx, err = tag.New(ctx,
 			tag.Insert(Guild, m.GuildID),
+			tag.Insert(User, m.User.ID),
 		)
 		if err != nil {
 			log.From(ctx).Error("adding tags", zap.Error(err))
