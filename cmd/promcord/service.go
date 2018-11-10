@@ -122,9 +122,9 @@ func main() {
 		log.From(ctx).Fatal("creating discord client", zap.Error(err))
 	}
 
-	discord.AddHandler(messageCreateHandler(ctx))
-	discord.AddHandler(memberAddHandler(ctx))
-	discord.AddHandler(memberRemoveHandler(ctx))
+	discord.AddHandler(messageCreate(ctx))
+	discord.AddHandler(memberAdd(ctx))
+	discord.AddHandler(memberRemove(ctx))
 
 	if err := discord.Open(); err != nil {
 		log.From(ctx).Fatal("opening discord connection")
@@ -162,7 +162,7 @@ func main() {
 }
 
 // handler will get called on every message and is responsible for updating the respective metrics
-func messageCreateHandler(ctx context.Context) func(s *discordgo.Session, m *discordgo.MessageCreate) {
+func messageCreate(ctx context.Context) func(s *discordgo.Session, m *discordgo.MessageCreate) {
 	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
 		ctx := log.WithFields(ctx,
 			zap.String("author", m.Author.ID),
@@ -203,7 +203,7 @@ func messageCreateHandler(ctx context.Context) func(s *discordgo.Session, m *dis
 }
 
 // handler will get called when a member enters a guild and is responsible for updating the respective metrics
-func memberAddHandler(ctx context.Context) func(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
+func memberAdd(ctx context.Context) func(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	return func(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 		ctx := log.WithFields(ctx,
 			zap.String("member", m.User.ID),
@@ -235,7 +235,7 @@ func memberAddHandler(ctx context.Context) func(s *discordgo.Session, m *discord
 }
 
 // handler will get called when a member leaves a guild and is responsible for updating the respective metrics
-func memberRemoveHandler(ctx context.Context) func(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
+func memberRemove(ctx context.Context) func(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	return func(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 		ctx := log.WithFields(ctx,
 			zap.String("member", m.User.ID),
