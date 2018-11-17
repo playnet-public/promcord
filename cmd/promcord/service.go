@@ -193,6 +193,7 @@ func messageCreate(ctx context.Context) func(s *discordgo.Session, m *discordgo.
 		)
 		if err != nil {
 			log.From(ctx).Error("adding tags", zap.Error(err))
+			return
 		}
 
 		log.From(ctx).Debug("recording metric")
@@ -210,16 +211,14 @@ func memberAdd(ctx context.Context) func(s *discordgo.Session, m *discordgo.Guil
 			zap.String("guild", m.GuildID),
 		)
 
-		var memberCount int
 		g, err := s.Guild(m.GuildID)
 		if err != nil {
 			log.From(ctx).Error("fetching guild", zap.Error(err))
 			return
 		}
 
-		memberCount = g.MemberCount
 		ctx = log.WithFields(ctx,
-			zap.Int("member_count", memberCount),
+			zap.Int("member_count", g.MemberCount),
 		)
 
 		ctx, err = tag.New(ctx,
@@ -227,10 +226,11 @@ func memberAdd(ctx context.Context) func(s *discordgo.Session, m *discordgo.Guil
 		)
 		if err != nil {
 			log.From(ctx).Error("adding tags", zap.Error(err))
+			return
 		}
 
 		log.From(ctx).Debug("recording metric")
-		stats.Record(ctx, MemberCount.M(int64(memberCount)))
+		stats.Record(ctx, MemberCount.M(int64(g.MemberCount)))
 	}
 }
 
@@ -242,16 +242,14 @@ func memberRemove(ctx context.Context) func(s *discordgo.Session, m *discordgo.G
 			zap.String("guild", m.GuildID),
 		)
 
-		var memberCount int
 		g, err := s.Guild(m.GuildID)
 		if err != nil {
 			log.From(ctx).Error("fetching guild", zap.Error(err))
 			return
 		}
 
-		memberCount = g.MemberCount
 		ctx = log.WithFields(ctx,
-			zap.Int("member_count", memberCount),
+			zap.Int("member_count", g.MemberCount),
 		)
 
 		ctx, err = tag.New(ctx,
@@ -259,9 +257,10 @@ func memberRemove(ctx context.Context) func(s *discordgo.Session, m *discordgo.G
 		)
 		if err != nil {
 			log.From(ctx).Error("adding tags", zap.Error(err))
+			return
 		}
 
 		log.From(ctx).Debug("recording metric")
-		stats.Record(ctx, MemberCount.M(int64(memberCount)))
+		stats.Record(ctx, MemberCount.M(int64(g.MemberCount)))
 	}
 }
