@@ -161,7 +161,7 @@ func main() {
 	log.From(ctx).Info("finished")
 }
 
-// handler will get called on every message and is responsible for updating the respective metrics
+// messageCreate will get called on every message and is responsible for updating the respective metrics
 func messageCreate(ctx context.Context) func(s *discordgo.Session, m *discordgo.MessageCreate) {
 	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
 		ctx := log.WithFields(ctx,
@@ -174,20 +174,18 @@ func messageCreate(ctx context.Context) func(s *discordgo.Session, m *discordgo.
 			return
 		}
 
-		var guildID string
 		c, err := s.Channel(m.ChannelID)
 		if err != nil {
 			log.From(ctx).Error("fetching channel", zap.Error(err))
-			guildID = "error"
+			return
 		}
 
-		guildID = c.GuildID
 		ctx = log.WithFields(ctx,
-			zap.String("guild", guildID),
+			zap.String("guild", c.GuildID),
 		)
 
 		ctx, err = tag.New(ctx,
-			tag.Insert(Guild, guildID),
+			tag.Insert(Guild, c.GuildID),
 			tag.Insert(Channel, m.ChannelID),
 			tag.Insert(User, m.Author.ID),
 		)
@@ -203,7 +201,7 @@ func messageCreate(ctx context.Context) func(s *discordgo.Session, m *discordgo.
 	}
 }
 
-// handler will get called when a member enters a guild and is responsible for updating the respective metrics
+// memberAdd will get called when a member enters a guild and is responsible for updating the respective metrics
 func memberAdd(ctx context.Context) func(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	return func(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 		ctx := log.WithFields(ctx,
@@ -234,7 +232,7 @@ func memberAdd(ctx context.Context) func(s *discordgo.Session, m *discordgo.Guil
 	}
 }
 
-// handler will get called when a member leaves a guild and is responsible for updating the respective metrics
+// memberRemove will get called when a member leaves a guild and is responsible for updating the respective metrics
 func memberRemove(ctx context.Context) func(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	return func(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 		ctx := log.WithFields(ctx,
