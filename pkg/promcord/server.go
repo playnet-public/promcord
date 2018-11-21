@@ -42,7 +42,7 @@ func New(ctx context.Context, token string, addr string) (*Server, error) {
 
 	srv := api.New(addr, false)
 	srv.Router.Get("/metrics", exporter.ServeHTTP)
-	srv.Router.Get("/healthz", Health(discord))
+	srv.Router.Get("/healthz", Health(ctx, discord))
 
 	s.Discord = discord
 	s.HTTP = srv
@@ -81,13 +81,16 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 // Health handler checking discord status
-func Health(discord *discordgo.Session) func(w http.ResponseWriter, r *http.Request) {
+func Health(ctx context.Context, discord *discordgo.Session) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		status := "ok"
 		user, err := discord.User(discord.State.User.ID)
 		if err != nil || user == nil {
 			status = "error"
 		}
-		w.Write([]byte(fmt.Sprintf(`{"status": "%s", "error": "%v"}`, status, err)))
+		_, e := w.Write([]byte(fmt.Sprintf(`{"status": "%s", "error": "%v"}`, status, err)))
+		if e != nil {
+			log.From(ctx).Error("writing health status", zap.Error(err))
+		}
 	}
 }
