@@ -12,14 +12,10 @@ go_library(
     importpath = "github.com/playnet-public/promcord/cmd/promcord",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/promcord:go_default_library",
+        "//pkg/promcord/handlers:go_default_library",
         "//pkg/service:go_default_library",
-        "//vendor/github.com/bwmarrin/discordgo:go_default_library",
-        "//vendor/github.com/go-chi/chi:go_default_library",
         "//vendor/github.com/seibert-media/golibs/log:go_default_library",
-        "//vendor/go.opencensus.io/exporter/prometheus:go_default_library",
-        "//vendor/go.opencensus.io/stats:go_default_library",
-        "//vendor/go.opencensus.io/stats/view:go_default_library",
-        "//vendor/go.opencensus.io/tag:go_default_library",
         "//vendor/go.uber.org/zap:go_default_library",
     ],
 )

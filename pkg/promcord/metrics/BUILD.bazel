@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "base.go",
+        "memberCount.go",
+        "msg.go",
+        "msgCount.go",
+        "msgLength.go",
+        "msgWordCount.go",
+    ],
+    importpath = "github.com/playnet-public/promcord/pkg/promcord/metrics",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/pkg/errors:go_default_library",
+        "//vendor/github.com/seibert-media/golibs/log:go_default_library",
+        "//vendor/go.opencensus.io/stats:go_default_library",
+        "//vendor/go.opencensus.io/stats/view:go_default_library",
+        "//vendor/go.opencensus.io/tag:go_default_library",
+        "//vendor/go.uber.org/zap:go_default_library",
+    ],
+)
