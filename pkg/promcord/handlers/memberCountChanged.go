@@ -29,6 +29,8 @@ func (m *MemberCountChanged) Register(ctx context.Context, discord *discordgo.Se
 	discord.AddHandler(m.BuildJoin(ctx))
 	discord.AddHandler(m.BuildLeave(ctx))
 
+	// TODO: Record current member count for all guilds on registration.
+
 	return nil
 }
 
