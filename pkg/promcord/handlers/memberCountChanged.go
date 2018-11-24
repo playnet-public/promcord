@@ -28,8 +28,7 @@ func (m *MemberCountChanged) Register(ctx context.Context, discord *discordgo.Se
 
 	discord.AddHandler(m.BuildJoin(ctx))
 	discord.AddHandler(m.BuildLeave(ctx))
-
-	// TODO: Record current member count for all guilds on registration.
+	discord.AddHandler(m.BuildCreate(ctx))
 
 	return nil
 }
@@ -77,5 +76,25 @@ func (m *MemberCountChanged) BuildLeave(ctx context.Context) interface{} {
 
 		log.From(ctx).Debug("recording metrics")
 		m.Metric.Record(ctx, msg.GuildID, g.MemberCount)
+	}
+}
+
+// BuildCreate function builder
+func (m *MemberCountChanged) BuildCreate(ctx context.Context) interface{} {
+	return func(s *discordgo.Session, event *discordgo.GuildCreate) {
+		ctx := log.WithFields(ctx,
+			zap.String("guild", event.ID),
+		)
+		g, err := s.Guild(event.ID)
+		if err != nil {
+			log.From(ctx).Error("fetching guild", zap.Error(err))
+			return
+		}
+		ctx = log.WithFields(ctx,
+			zap.Int("members", g.MemberCount),
+		)
+
+		log.From(ctx).Debug("recording metrics")
+		m.Metric.Record(ctx, event.ID, g.MemberCount)
 	}
 }
