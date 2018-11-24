@@ -1,23 +1,11 @@
 package main
 
 import (
-	"context"
-	"net/http"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
-	"time"
-
+	"github.com/playnet-public/promcord/pkg/promcord"
+	"github.com/playnet-public/promcord/pkg/promcord/handlers"
 	"github.com/playnet-public/promcord/pkg/service"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/go-chi/chi"
 	"github.com/seibert-media/golibs/log"
-	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 	"go.uber.org/zap"
 )
 
@@ -34,231 +22,30 @@ type Spec struct {
 	Token string `envconfig:"discord_token" required:"true" help:"discord bot token"`
 }
 
-var (
-	// MsgCount .
-	MsgCount = stats.Int64("promcord/messages/total", "Count of messages", "1")
-	// MsgLength .
-	MsgLength = stats.Int64("promcord/messages/length", "Length of messages", "1")
-	// MsgWordCount .
-	MsgWordCount = stats.Int64("promcord/message/word/count", "Count of words in messages", "1")
-	// MemberCount .
-	MemberCount = stats.Int64("promcord/member/count", "Count of members", "1")
-)
-
-var (
-	// Guild ID of the recorded metric
-	Guild, _ = tag.NewKey("guild")
-	// Channel ID of the recorded metric
-	Channel, _ = tag.NewKey("channel")
-	// User ID of the recorded metric
-	User, _ = tag.NewKey("user")
-)
-
-var (
-	// MsgCountView .
-	MsgCountView = &view.View{
-		Name:        "msg/count",
-		Measure:     MsgCount,
-		Description: "The number of messages sent",
-		TagKeys:     []tag.Key{Guild, Channel, User},
-		Aggregation: view.Count(),
-	}
-	// MsgLengthView .
-	MsgLengthView = &view.View{
-		Name:        "msg/length",
-		Measure:     MsgLength,
-		Description: "The length of messages sent",
-		TagKeys:     []tag.Key{Guild, Channel, User},
-		Aggregation: view.LastValue(),
-	}
-	// MsgWordCountView .
-	MsgWordCountView = &view.View{
-		Name:        "msg/word/count",
-		Measure:     MsgWordCount,
-		Description: "The number of words sent in messages",
-		TagKeys:     []tag.Key{Guild, Channel, User},
-		Aggregation: view.LastValue(),
-	}
-	// MemberCountView .
-	MemberCountView = &view.View{
-		Name:        "member/count",
-		Measure:     MemberCount,
-		Description: "The number of members",
-		TagKeys:     []tag.Key{Guild},
-		Aggregation: view.LastValue(),
-	}
-)
-
 func main() {
 	var svc Spec
 	ctx := service.Init(appKey, appName, &svc)
 	defer service.Defer(ctx)
 
-	log.From(ctx).Info("creating prometheus exporter")
-	exporter, err := prometheus.NewExporter(prometheus.Options{})
+	srv, err := promcord.New(ctx, svc.Token, svc.Addr)
 	if err != nil {
-		log.From(ctx).Fatal("creating prometheus exporter", zap.Error(err))
+		log.From(ctx).Fatal("preparing server", zap.String("addr", svc.Addr), zap.Error(err))
 	}
-	view.RegisterExporter(exporter)
 
-	log.From(ctx).Info("registering views")
-	if err := view.Register(MsgCountView); err != nil {
-		log.From(ctx).Fatal("registering views", zap.Error(err))
+	handlers := []promcord.Handler{
+		&handlers.MessageCreated{},
+		&handlers.MemberCountChanged{},
 	}
-	if err := view.Register(MsgLengthView); err != nil {
-		log.From(ctx).Fatal("registering views", zap.Error(err))
-	}
-	if err := view.Register(MsgWordCountView); err != nil {
-		log.From(ctx).Fatal("registering views", zap.Error(err))
-	}
-	if err := view.Register(MemberCountView); err != nil {
-		log.From(ctx).Fatal("registering views", zap.Error(err))
-	}
-	view.SetReportingPeriod(1 * time.Second)
 
-	log.From(ctx).Info("creating discord client")
-	discord, err := discordgo.New("Bot " + svc.Token)
+	err = srv.Register(ctx, handlers...)
 	if err != nil {
-		log.From(ctx).Fatal("creating discord client", zap.Error(err))
+		log.From(ctx).Fatal("registering handlers", zap.Error(err))
 	}
 
-	discord.AddHandler(messageCreate(ctx))
-	discord.AddHandler(memberAdd(ctx))
-	discord.AddHandler(memberRemove(ctx))
-
-	if err := discord.Open(); err != nil {
-		log.From(ctx).Fatal("opening discord connection")
-	}
-	defer discord.Close()
-
-	router := chi.NewRouter()
-	router.Get("/metrics", exporter.ServeHTTP)
-
-	var srv = http.Server{
-		Addr:    svc.Addr,
-		Handler: router,
-	}
-
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-		<-c
-		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-		log.From(ctx).Info("shutting down server")
-		err = srv.Shutdown(ctx)
-		if err != nil {
-			log.From(ctx).Fatal("shutting down server", zap.Error(err))
-		}
-	}()
-
-	log.From(ctx).Info("serving metrics", zap.String("addr", svc.Addr))
-	err = srv.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
-		log.From(ctx).Fatal("serving metrics", zap.String("addr", svc.Addr), zap.Error(err))
+	err = srv.Start(ctx)
+	if err != nil {
+		log.From(ctx).Fatal("running server", zap.Error(err))
 	}
 
 	log.From(ctx).Info("finished")
-}
-
-// messageCreate will get called on every message and is responsible for updating the respective metrics
-func messageCreate(ctx context.Context) func(s *discordgo.Session, m *discordgo.MessageCreate) {
-	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		ctx := log.WithFields(ctx,
-			zap.String("author", m.Author.ID),
-			zap.String("channel", m.ChannelID),
-			zap.String("message", m.ID),
-		)
-
-		if m.Author.ID == s.State.User.ID {
-			return
-		}
-
-		c, err := s.Channel(m.ChannelID)
-		if err != nil {
-			log.From(ctx).Error("fetching channel", zap.Error(err))
-			return
-		}
-
-		ctx = log.WithFields(ctx,
-			zap.String("guild", c.GuildID),
-		)
-
-		ctx, err = tag.New(ctx,
-			tag.Insert(Guild, c.GuildID),
-			tag.Insert(Channel, m.ChannelID),
-			tag.Insert(User, m.Author.ID),
-		)
-		if err != nil {
-			log.From(ctx).Error("adding tags", zap.Error(err))
-			return
-		}
-
-		log.From(ctx).Debug("recording metric")
-		stats.Record(ctx, MsgCount.M(int64(1)))
-		stats.Record(ctx, MsgLength.M(int64(len(m.Content))))
-		stats.Record(ctx, MsgWordCount.M(int64(len(strings.Fields(m.Content)))))
-	}
-}
-
-// memberAdd will get called when a member enters a guild and is responsible for updating the respective metrics
-func memberAdd(ctx context.Context) func(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
-	return func(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
-		ctx := log.WithFields(ctx,
-			zap.String("member", m.User.ID),
-			zap.String("guild", m.GuildID),
-		)
-
-		g, err := s.Guild(m.GuildID)
-		if err != nil {
-			log.From(ctx).Error("fetching guild", zap.Error(err))
-			return
-		}
-
-		ctx = log.WithFields(ctx,
-			zap.Int("member_count", g.MemberCount),
-		)
-
-		ctx, err = tag.New(ctx,
-			tag.Insert(Guild, m.GuildID),
-		)
-		if err != nil {
-			log.From(ctx).Error("adding tags", zap.Error(err))
-			return
-		}
-
-		log.From(ctx).Debug("recording metric")
-		stats.Record(ctx, MemberCount.M(int64(g.MemberCount)))
-	}
-}
-
-// memberRemove will get called when a member leaves a guild and is responsible for updating the respective metrics
-func memberRemove(ctx context.Context) func(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
-	return func(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
-		ctx := log.WithFields(ctx,
-			zap.String("member", m.User.ID),
-			zap.String("guild", m.GuildID),
-		)
-
-		g, err := s.Guild(m.GuildID)
-		if err != nil {
-			log.From(ctx).Error("fetching guild", zap.Error(err))
-			return
-		}
-
-		ctx = log.WithFields(ctx,
-			zap.Int("member_count", g.MemberCount),
-		)
-
-		ctx, err = tag.New(ctx,
-			tag.Insert(Guild, m.GuildID),
-		)
-		if err != nil {
-			log.From(ctx).Error("adding tags", zap.Error(err))
-			return
-		}
-
-		log.From(ctx).Debug("recording metric")
-		stats.Record(ctx, MemberCount.M(int64(g.MemberCount)))
-	}
 }

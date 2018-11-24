@@ -3,6 +3,17 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:cceea013abcb00c51bb3452334ab52e61241e150b0519945895e60af0ad5bd5f"
+  name = "bitbucket.org/seibert-media/events"
+  packages = [
+    "pkg/api",
+    "pkg/api/middlewares",
+  ]
+  pruneopts = "UT"
+  revision = "cfd9355a381e0c3ae7fc692458717fa4a66a0cf6"
+
+[[projects]]
+  branch = "master"
   digest = "1:d6afaeed1502aa28e80a4ed0981d570ad91b2579193404256ce672ed0a609e0d"
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
@@ -18,12 +29,12 @@
   version = "v1.1.2"
 
 [[projects]]
-  digest = "1:4fd5ce7844c22e194005b9e12fee8adc70fb5ba0bbba9e1964d2e3d1f301d789"
+  branch = "master"
+  digest = "1:fc4f149402c1fa7258290c3f91b0bfbc709763f3d3899609a2e4a0163dec65c6"
   name = "github.com/bwmarrin/discordgo"
   packages = ["."]
   pruneopts = "UT"
-  revision = "4a33b9bc7c56cfdb9bb244e33e83cb3941fe2bdc"
-  version = "v0.18.0"
+  revision = "8325a6bf6dd6c91ed4040a1617b07287b8fb0eba"
 
 [[projects]]
   digest = "1:fed1f537c2f1269fe475a8556c393fe466641682d73ef8fd0491cd3aa1e47bad"
@@ -42,9 +53,12 @@
   revision = "084a9de9eb0361fbd5ded14b55c84e5493a5d7f6"
 
 [[projects]]
-  digest = "1:b9914f85d95a0968bafd1be1908ba29e2eafafd88d6fd13696be42bf5368c380"
+  digest = "1:a9fe0f8ff72c388d0128e88ce5f3c27d37dcd0950acd7cdb8323555f12463396"
   name = "github.com/go-chi/chi"
-  packages = ["."]
+  packages = [
+    ".",
+    "middleware",
+  ]
   pruneopts = "UT"
   revision = "b5294d10673813fac8558e7f47242bc9e61b4c25"
   version = "v3.3.3"
@@ -226,10 +240,11 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "bitbucket.org/seibert-media/events/pkg/api",
     "github.com/bwmarrin/discordgo",
-    "github.com/go-chi/chi",
     "github.com/kelseyhightower/envconfig",
     "github.com/kolide/kit/version",
+    "github.com/pkg/errors",
     "github.com/seibert-media/golibs/log",
     "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/stats",
